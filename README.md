@@ -1,6 +1,8 @@
-# Chainlake Stream Ingestion
+# Chainlake Stream Ingestion (WIP)
 
-Chainlake Stream Ingestion is an async-first blockchain ingestion engine designed for:
+***Project Progress***:  `[##--------]` 10%
+
+Chainlake Stream Ingestion is a Python-based async-first blockchain ingestion engine designed for:
 
 - low-latency realtime stream ingestion  
 - high-throughput historical backfill  

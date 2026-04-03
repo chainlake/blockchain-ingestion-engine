@@ -344,11 +344,11 @@ This project ensures:
 
 # Positioning
 
-Blockchain Stream Ingestion is not a traditional ETL exporter.
+Blockchain Ingestion Engine is not a traditional ETL exporter.
 
 It is designed as:
 
-> blockchain stream runtime infrastructure
+> blockchain Ingestion runtime infrastructure
 
 for modern semantic data systems.
 

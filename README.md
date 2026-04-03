@@ -1,6 +1,6 @@
-# Blockchain Stream Ingestion
+# Chainlake Ingestion Engine
 
-`blockchain-stream-ingestion` is the core ingestion engine of **Chainlake**, designed for modern blockchain data infrastructure.
+`chainlake-ingestion-engine` is the core ingestion engine of **Chainlake**, designed for modern blockchain data infrastructure.
 
 It provides:
 
@@ -11,7 +11,9 @@ It provides:
 - Kafka-native downstream delivery
 - multi-chain extensibility (EVM + future non-EVM)
 
-Unlike traditional ETL-oriented blockchain extractors, `blockchain-stream-ingestion` is built for **continuous semantic data pipelines**.
+Unlike traditional ETL-oriented blockchain extractors, `chainlake-ingestion-engine` is built for both:
+* **continuous realtime semantic pipelines**
+* **large-scale historical data ingestion**
 
 # Why This Project Exists
 
@@ -22,31 +24,37 @@ Most existing blockchain ETL tools were designed for:
 - batch pipelines
 
 They are not optimized for:
-- realtime ingestion
+- high throughput backfill
 - async concurrency
+- realtime ingestion
 - Kafka-native stream processing
-- semantic data layer freshness
+- semantic data freshness
 
-`blockchain-stream-ingestion` solves that.
+`chainlake-ingestion-engine` solves both problems:
+## Realtime
+Low-latency block ingestion for semantic freshness.
+
+## Historical
+High-throughput backfill for full-chain reconstruction.
 
 # Core Design Goals
 
-## Stream First
-Realtime blocks must arrive with minimal delay.
-Target:
-- block arrival → Kafka within milliseconds
-
-## Unified Batch + Stream Engine
+## Unified Stream + Backfill Engine
 Same ingestion core supports:
+- realtime streaming
 - historical backfill
-- realtime stream
 No duplicated code path.
+
+## Stream First but Batch Strong
+- Realtime guarantees freshness.
+- Backfill guarantees full-chain completeness.
+Both are first-class citizens.
 
 ## Ordered Output Guarantee
 
 Even under async concurrency:
 - block ordering preserved
-- downstream consumers receive deterministic sequence
+- downstream deterministic sequence maintained
 
 ## Horizontal Scalability
 Can scale by:
@@ -151,7 +159,7 @@ E2 --> F2
 
 # Project Structure
 ```text
-blockchain-stream-ingestion/
+chainlake-ingestion-engine/
 
 ├── cmd/
 │   └── cli.py
@@ -161,7 +169,7 @@ blockchain-stream-ingestion/
 │   ├── bsc.yaml
 │   └── sui.yaml
 
-├── blockchain_ingestion/
+├── chainlake_ingestion/
 
 │   ├── core/
 │   │   ├── scheduler.py
@@ -229,6 +237,20 @@ Uses:
 - retry
 - circuit breaker
 - provider failover
+
+# Key Difference from Traditional ETL
+Traditional ETL:
+- export-oriented
+- offline-first
+- synchronous RPC
+- limited throughput
+
+Chainlake Ingestion Engine:
+- async-first
+- stream-native
+- backfill-optimized
+- Kafka-ready
+- horizontally scalable
 
 # Planned Features
 ## Redis Ordering Buffer

@@ -1,185 +1,242 @@
-# Chainlake Stream Ingestion (WIP)
+# Blockchain Stream Ingestion
 
-***Project Progress***:  `[##--------]` 10%
+`blockchain-stream-ingestion` is the core ingestion engine of **Chainlake**, designed for modern blockchain data infrastructure.
 
-Chainlake Stream Ingestion is a Python-based async-first blockchain ingestion engine designed for:
+It provides:
 
-- low-latency realtime stream ingestion  
-- high-throughput historical backfill  
-- horizontal scalability  
-- ordered block delivery  
-- multi-chain adapter extensibility  
+- ultra-low latency stream ingestion
+- high throughput historical backfill
+- ordered block processing
+- async RPC concurrency
+- Kafka-native downstream delivery
+- multi-chain extensibility (EVM + future non-EVM)
 
-It is built as the core ingestion runtime for Chainlake semantic data infrastructure.
-
----
+Unlike traditional ETL-oriented blockchain extractors, `blockchain-stream-ingestion` is built for **continuous semantic data pipelines**.
 
 # Why This Project Exists
 
-Most existing blockchain ETL tools are optimized for historical export:
+Most existing blockchain ETL tools were designed for:
+- historical export
+- offline analytics
+- CSV / JSON dumps
+- batch pipelines
 
-- sync RPC calls  
-- sequential block processing  
-- file/database export pipelines  
+They are not optimized for:
+- realtime ingestion
+- async concurrency
+- Kafka-native stream processing
+- semantic data layer freshness
 
-They are reliable for backfill, but not designed for modern realtime semantic data systems.
+`blockchain-stream-ingestion` solves that.
 
-Chainlake Stream Ingestion focuses on:
+# Core Design Goals
 
-- async RPC concurrency  
-- inflight scheduling  
-- ordered buffering  
-- async sink delivery  
-- stream-native observability  
+## Stream First
+Realtime blocks must arrive with minimal delay.
+Target:
+- block arrival → Kafka within milliseconds
 
-This enables realtime semantic layers with much lower end-to-end latency.
+## Unified Batch + Stream Engine
+Same ingestion core supports:
+- historical backfill
+- realtime stream
+No duplicated code path.
 
----
+## Ordered Output Guarantee
 
-# Core Features
+Even under async concurrency:
+- block ordering preserved
+- downstream consumers receive deterministic sequence
 
-## Async Native Runtime
+## Horizontal Scalability
+Can scale by:
+- block partition
+- chain partition
+- topic partition
 
-- async block fetch
-- concurrent inflight scheduling
-- non-blocking result handling
-
-## Ordered Delivery
-
-Out-of-order RPC results are buffered and committed in canonical block order.
-
-## High Throughput Batch + Low Latency Stream
+## Multi-Chain Future
 
 Supports:
+### EVM now
+Examples:
+- Ethereum
+- BNB Chain
+- Polygon
 
-- historical backfill mode
-- realtime head tracking mode
-
-using the same runtime core.
-
-## eRPC Integration
-
-For EVM chains:
-
-- retry
-- timeout
-- rate limiting
-- RPC failover
-
-through eRPC integration.
-
-## Multi-Chain Adapter Design
-
-Current:
-
-- EVM first
-
-Future:
-
+### Non-EVM future:
+Planned:
 - Sui
 - Aptos
 - Solana
 
-through adapter abstraction.
+# High-Level Architecture
+```mermaid
+flowchart TD
 
-## Async Sink Layer
+A[Blockchain RPC Nodes] --> B[eRPC / RPC Adapter Layer]
 
-Supports pluggable output sinks:
+B --> C[Async Fetch Scheduler]
 
-- Kafka
-- Parquet
-- Iceberg
-- ClickHouse
+C --> D[Block Fetch Workers]
 
----
+D --> E[Decode Pipeline]
 
-# Architecture
+E --> F[Ordering Buffer]
+
+F --> G[Async Kafka Producer]
+
+G --> H[Kafka Topics]
+
+H --> I[Realtime Semantic Layer]
+
+H --> J[Batch Compute Layer]
+```
+
+# Architecture V3 (Production Model)
 
 ```mermaid
-flowchart TB
+flowchart TD
 
-    CLI --> Runtime
+subgraph RPC
+A1[EVM RPC via eRPC]
+A2[Non-EVM RPC via Adapter]
+end
 
-    Runtime --> Planner
-    Runtime --> Scheduler
+subgraph Ingestion
+B1[Async Scheduler]
+B2[Concurrent Fetch Workers]
+B3[Retry / Timeout / Backpressure]
+end
 
-    Planner --> Fetcher
-    Scheduler --> Fetcher
+subgraph Decode
+C1[Block Decoder]
+C2[Transaction Decoder]
+C3[Log Decoder]
+end
 
-    Fetcher --> OrderedBuffer
+subgraph Ordering
+D1[Sequence Buffer]
+D2[Gap Recovery]
+end
 
-    OrderedBuffer --> SinkKafka
-    OrderedBuffer --> SinkStorage
+subgraph Delivery
+E1[Async Kafka Producer]
+E2[Partition Routing]
+end
 
-    Fetcher --> AdapterEVM
-    Fetcher --> AdapterNonEVM
+subgraph Downstream
+F1[Realtime Semantic Storage]
+F2[Historical Lakehouse]
+end
 
-    AdapterEVM --> eRPC
-    AdapterNonEVM --> RPCAdapter
+A1 --> B1
+A2 --> B1
 
-    SinkKafka --> SemanticLayer
-    SinkStorage --> HistoricalLake
+B1 --> B2
+B2 --> B3
+
+B3 --> C1
+C1 --> C2
+C2 --> C3
+
+C3 --> D1
+D1 --> D2
+
+D2 --> E1
+E1 --> E2
+
+E2 --> F1
+E2 --> F2
 ```
-
----
 
 # Project Structure
-
 ```text
-chainlake-stream-ingestion/
-├── cli/
-├── chainlake_stream/
-│   ├── adapters/
+blockchain-stream-ingestion/
+
+├── cmd/
+│   └── cli.py
+
+├── configs/
+│   ├── evm.yaml
+│   ├── bsc.yaml
+│   └── sui.yaml
+
+├── blockchain_ingestion/
+
+│   ├── core/
+│   │   ├── scheduler.py
+│   │   ├── fetcher.py
+│   │   ├── retry.py
+│   │   ├── ordering.py
+│   │   └── checkpoint.py
+
 │   ├── rpc/
-│   ├── planner/
-│   ├── runtime/
-│   ├── execution/
+│   │   ├── evm/
+│   │   ├── sui/
+│   │   └── adapter_base.py
+
+│   ├── decoder/
+│   │   ├── block_decoder.py
+│   │   ├── tx_decoder.py
+│   │   └── log_decoder.py
+
+│   ├── producer/
+│   │   ├── kafka_async.py
+│   │   └── partitioner.py
+
 │   ├── state/
-│   ├── sinks/
+│   │   ├── redis_buffer.py
+│   │   └── sequence_state.py
+
 │   ├── metrics/
-│   ├── models/
-│   ├── utils/
-│   └── config/
-├── deployments/
+│   │   ├── prometheus.py
+│   │   └── tracing.py
+
+│   └── utils/
+
 ├── tests/
+
+├── docker/
+
+├── deploy/
+│   ├── k8s/
+│   └── helm/
+
 ├── scripts/
+
+└── README.md
 ```
 
----
+# Core Features
 
-# Runtime Layers
+## Async RPC Fetching
+- high concurrency
+- adaptive worker pools
+- latency aware
 
-## adapters/
+## Ordered Block Delivery
+- sequence buffer
+- gap recovery
 
-Chain-specific parsing and RPC abstraction.
+## Async Kafka Producer
+- high throughput
+- partition aware
+- non-blocking delivery
 
-## rpc/
+## RPC Reliability via eRPC
+Uses:
+- timeout
+- retry
+- circuit breaker
+- provider failover
 
-Transport-level retry / timeout / rate limit control.
+# Planned Features
+## Redis Ordering Buffer
+for large-scale strict ordering
 
-## planner/
-
-Range slicing and block scheduling.
-
-## runtime/
-
-Main orchestration engine.
-
-## execution/
-
-Fetch + reorder + merge pipeline.
-
-## state/
-
-Checkpoint / cursor / replay state.
-
-## sinks/
-
-Kafka / storage outputs.
-
-## metrics/
-
-Prometheus / tracing / runtime observability.
+## Multi-region RPC routing
+## Adaptive concurrency controller
+## chain-specific parser plugins
 
 ---
 
@@ -192,6 +249,24 @@ Optimized for:
 - latest block ingestion
 - low-latency semantic updates
 
+Example Run:
+```bash
+python cmd/cli.py \
+  --chain bsc \
+  --mode stream \
+  --start-block latest
+```
+Output Topics:
+Examples:
+```text
+blocks
+transactions
+logs
+erc20_transfers
+erc721_transfers
+erc1155_transfers
+```
+
 ## Batch Backfill Mode
 
 Optimized for:
@@ -199,33 +274,55 @@ Optimized for:
 - large historical range export
 - maximum throughput
 
----
+# Downstream Integration
+
+Designed for:
+- Apache Kafka
+- Apache Spark
+- Apache Iceberg
+- ClickHouse
+
+# realtime semantic freshness
+
+Without low-latency ingestion, semantic layer always lags.
+
+This project ensures:
+- semantic freshness
+- low compute delay
+- scalable chain expansion
 
 # Future Roadmap
 
-## V1
-
+## v0.1 (WIP)
 - EVM stable runtime
 - Kafka sink
 - ordered buffer
+
+## v0.2
 - Prometheus metrics
+- OpenTelemetry traces
+- Loki logs
 
-## V2
-
-- Iceberg sink
+## v0.3
+- Parquet / Iceberg sink
 - replay state persistence
-- non-EVM adapters
 
-## V3
+## v0.4
+- Redis ordering
+- non-EVM adapter framework
 
+## v0.5
 - unified semantic ingestion engine
 - exactly-once end-to-end delivery
+
+## v1.0
+- production multi-chain release
 
 ---
 
 # Positioning
 
-Chainlake Stream Ingestion is not a traditional ETL exporter.
+Blockchain Stream Ingestion is not a traditional ETL exporter.
 
 It is designed as:
 
